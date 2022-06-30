@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 DATADIR = "C:/Users/Owner/Desktop/Lego_Data_Version_1/LegoClasses"
 CATEGORIES = ["2639", "3009", "3021", "3034", "3308", "3666", "3710", "41769"]
 
-IMG_SIZE = 256 #This is the normalized image size in pixels
+IMG_SIZE = 256 #This is the normalized image size in pixels (FOR SQUARE-IMAGES CHANGE TO DESIRED SIZE)
 
 training_data = [] #creates empty training data list to be appeneded into
 
@@ -65,7 +65,6 @@ pickle_out.close()
 
 """
 
-
 x_train = pickle.load(open("x_lego.pickle", "rb"))
 y_train = pickle.load(open("y_lego.pickle", "rb"))
 
@@ -81,63 +80,59 @@ print(x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 x_train = x_train/255.0
 x_test = x_test/255.0
 
-"""
+#Function below returns the uncompiled (aka untrained neural network) model object
+#Needs to be provided with "x_train" when x_train is a numpy array so as to allow
+#the first layer to properly match the input shape of the input data
 
-model = Sequential()
-model.add(Conv2D(128, (3,3), input_shape = x_train.shape[1:]))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
+def conv_net(x_train):
+    
+    model = Sequential()
+    model.add(Conv2D(128, (3,3), input_shape = x_train.shape[1:]))
+    model.add(Activation("relu"))
+    model.add(MaxPooling2D(pool_size=(2,2)))
 
-model.add(Conv2D(128, (3,3)))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
+    model.add(Conv2D(128, (3,3)))
+    model.add(Activation("relu"))
+    model.add(MaxPooling2D(pool_size=(2,2)))
 
-model.add(Flatten())
-model.add(Dense(128))
+    model.add(Flatten())
+    model.add(Dense(128))
 
-model.add(Dense(8))
-model.add(Activation('softmax'))
+    model.add(Dense(8))
+    model.add(Activation('softmax'))
 
-loss = keras.losses.SparseCategoricalCrossentropy()
-optim = keras.optimizers.Adam()
-metrics = [keras.metrics.SparseCategoricalAccuracy()]
+    return model
 
-model.compile(loss=loss, optimizer=optim, metrics=metrics)
+#Function below compiles the neural network
+#Only requires the uncompiled model to be passed
 
-history = model.fit(x_train, y_train, batch_size=32, epochs=4)
-model.evaluate(x_test, y_test, batch_size=64, verbose=2)
+def compiling_neural(model):
+    
+    loss = keras.losses.SparseCategoricalCrossentropy()
+    optim = keras.optimizers.Adam()
+    metrics = [keras.metrics.SparseCategoricalAccuracy()]
 
-#print out model summary displaying parameters and total number of layers
-# total of 63,130,120 trainable parameters 
+    model.compile(loss=loss, optimizer=optim, metrics=metrics)
+    
+    return model
 
-model.summary() 
+#Function just saves model in tensorflow standard format under name "neurally_net"
 
-model.save("neural_net")
-"""
+def saving_model(model):
+    model.save("neurally_net")
 
-new_model = keras.models.load_model("neural_net")
+#Function below trains the model on the training set, then evaluates performance on testing set
+#Requires compiled model
+#Returns history object so that plot of accuracy and loss can be generated in Jupyter Notebook
 
-#new_model.summary() 
+def evaluate_neural(model):
+    
+    history = model.fit(x_train, y_train, batch_size=32, epochs=4)
+    model.evaluate(x_test, y_test, batch_size=64, verbose=2)
+    saving_model(model) #Will save the model weights to WORKING DIRECTORY
+    
+    return history 
 
-plt.imshow(x_train[1], cmap="gray")
-plt.show()
-
-new_model.evaluate(x_test, y_test, verbose=2)
-
-y_pred = np.argmax(new_model.predict(x_test), axis=-1)
-
-print(y_pred)
-
-print(y_test)
-
-#to get singular prediction 
-
-img = x_train[8]
-
-counter = 0
-
-for i in y_pred:
-    if y_pred[i] == y_test[i]:
-        counter = counter + 1
-
-print(counter)
+model = conv_net(x_train)
+model = compiling_neural(model)
+history = evaluate_neural(model)
